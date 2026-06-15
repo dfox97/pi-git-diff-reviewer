@@ -1,0 +1,31 @@
+{
+  "name": "pi-diff-review-wsl",
+  "version": "0.3.0",
+  "description": "Native diff review window for pi, with WSL2 support via Windows WebView2",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "diff", "review", "wsl", "glimpse"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/badlogic/pi-diff-review"
+  },
+  "license": "MIT",
+  "scripts": {
+    "check": "tsgo --noEmit"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "dependencies": {
+    "glimpseui": "^0.8.1"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@typescript/native-preview": "^7.0.0-dev.20260313.1",
+    "typescript": "^5.9.2"
+  }
+}
