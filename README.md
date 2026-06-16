@@ -125,12 +125,34 @@ This package is already configured to be a pi package:
 
 ## Architecture
 
-The package is split into two layers:
+The package is split into three layers:
 
-- `src/core/` — agent-agnostic. The git pipeline (`Exec` is injected, not pulled from any specific runtime), prompt composer, HTML builder, and the window orchestrator. No `pi-coding-agent` or `pi-tui` imports.
+- `src/core/` — agent-agnostic. The git pipeline (`Exec` is injected, not pulled from any specific runtime), prompt composer, HTML builder, and the window orchestrator. No `pi-coding-agent`, `pi-tui`, or `@opencode-ai/*` imports.
 - `src/bindings/pi.ts` — thin pi-specific adapter. Registers the `/diff-review` command, draws the "Waiting for review" TUI panel, races the escape key against the window result, and inserts the composed feedback into the editor.
+- `src/bindings/opencode.ts` — thin opencode-specific adapter. Defines a custom tool (`diff_review`) the LLM can call and hooks `command.execute.before` so the user can type `/diff-review [base]` directly in the TUI. In both paths the composed feedback replaces the message that gets sent to the LLM, matching the pi-binding's "insert into the editor" UX.
 
-Any other agentic tool (Claude Code, OpenCode, Codex, …) can drop in its own binding alongside by importing from `src/core/index.js` and supplying its own `Exec` implementation. `src/index.ts` is a barrel re-exporting the core for direct consumers.
+Any other agentic tool (Claude Code, Codex, …) can drop in its own binding alongside by importing from `src/core/index.js` and supplying its own `Exec` implementation. `src/index.ts` is a barrel re-exporting the core for direct consumers.
+
+## opencode support
+
+To run the opencode binding locally in this folder:
+
+1. Make sure opencode's local plugin deps are present:
+   ```bash
+   cd .opencode && bun add @opencode-ai/plugin
+   ```
+   This populates `.opencode/node_modules/` (gitignored). If you already have opencode installed system-wide, it will resolve these from the user's global cache.
+2. From the repo root, start opencode:
+   ```bash
+   opencode
+   ```
+3. Type `/diff-review` (or `/diff-review main`) in the TUI.
+
+What happens:
+
+- opencode discovers `.opencode/plugins/diff-review.ts` → re-exports `DiffReviewPlugin` from `../../src/bindings/opencode.js`.
+- The plugin's `command.execute.before` hook fires for `diff-review`, opens the native Glimpse window via `core/`, awaits the user's submit/cancel, then **replaces** the message parts that opencode would have sent to the LLM with the composed feedback prompt.
+- If you instead let the LLM call the `diff_review` tool directly (e.g. “please review my diff”), the same flow runs but through the custom-tool path.
 
 To publish:
 
@@ -176,13 +198,16 @@ If the flicker is still annoying, you can experiment with the `placeholder` stri
 
 The original was a single pi-coupled module. This fork reorganises it so the diff-review domain is reusable across agentic coding tools:
 
-- `src/core/git.ts` — git pipeline takes an injected `Exec` (mirrors `@earendil-works/pi-coding-agent`'s shape, so pi drops in directly) instead of depending on `ExtensionAPI`
+- `src/core/git.ts` — git pipeline takes an injected `Exec` (a structural subset of `@earendil-works/pi-coding-agent`'s `ExecOptions`/`ExecResult`, so pi drops in directly) instead of depending on `ExtensionAPI`
 - `src/core/review-window.ts` — owns the message protocol (open window, lazy-load on `request-file`, settle on submit/cancel/closed) and exposes `{ result, close }` so bindings can race cancellation
 - `src/core/{types,prompt,ui,wsl-glimpse}.ts` — moved as-is (already pi-free)
 - `src/core/index.ts` — public API barrel
 - `src/bindings/pi.ts` — slim pi adapter (was `src/index.ts`); only file in the repo that imports `@earendil-works/pi-coding-agent` / `@earendil-works/pi-tui`
+- `src/bindings/opencode.ts` — slim opencode adapter. Defines a custom `diff_review` tool and hooks `command.execute.before` so a `/diff-review` slash command intercepts the LLM round-trip and replaces the message parts with the composed feedback
+- `.opencode/plugins/diff-review.ts` — opencode's loader entry; thin re-export of the binding
+- `.opencode/commands/diff-review.md` — slash command the user types
 - `src/index.ts` — root barrel re-exporting the core for direct consumers
-- `package.json` — `pi.extensions` now points at `./src/bindings/pi.ts`
+- `package.json` — `pi.extensions` now points at `./src/bindings/pi.ts`; `@opencode-ai/plugin` + `@opencode-ai/sdk` + `@types/bun` are devDeps for typechecking the opencode binding
 
 ## License
 
