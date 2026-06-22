@@ -1,8 +1,9 @@
 # pi-diff-review-wsl
 
-A WSL2-adapted fork of [pi-diff-review](https://github.com/badlogic/pi-diff-review) by Mario Zechner.
-
 Adds a `/diff-review` command to [pi](https://pi.dev) that opens a native diff review window. The original extension works on macOS, Linux, and Windows. This fork specifically handles the **WSL2 + Windows** case where the pi agent runs in WSL2 but the native window must render on the Windows desktop via WebView2.
+
+## Currently:
+Usable with pi, opencode and supports cli command `/diff-review` so any comments made during feedback get saved to clipboard, you can then paste them into your agent editor or your choice, works well with claude code this way. 
 
 ## What it does
 
@@ -312,12 +313,5 @@ The original was a single pi-coupled module. This fork reorganises it so the dif
 - `src/index.ts` — root barrel re-exporting the core for direct consumers
 - `package.json` — `pi.extensions` now points at `./src/bindings/pi.ts`; `@opencode-ai/plugin` + `@opencode-ai/sdk` + `@types/bun` are devDeps for typechecking the opencode binding; `bin` points at `./bin/diff-review`
 
-## License
-
-Same as the original project.
-
-cli setup:
-npm run build # creates dist/ so the bin can use compiled JS
-npm link # symlinks `diff-review` into your global npm bin path
-
-diff-review
+## Adapted from:
+A WSL2-adapted fork of [pi-diff-review](https://github.com/badlogic/pi-diff-review) by Mario Zechner.
