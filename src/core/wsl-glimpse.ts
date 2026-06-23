@@ -77,11 +77,42 @@ function toFileUrl(windowsPath: string): string {
 
 const WINDOWS_INSTALL_DIR = "/mnt/c/temp/pi-wsl-glimpse";
 
+function patchWindowsGlimpseShowInTaskbar(): void {
+  const programCsPath = join(
+    WINDOWS_INSTALL_DIR,
+    "node_modules",
+    "glimpseui",
+    "native",
+    "windows",
+    "Program.cs",
+  );
+  if (!existsSync(programCsPath)) {
+    throw new Error("glimpseui Program.cs not found after install.");
+  }
+
+  const original = readFileSync(programCsPath, "utf8");
+  // Upstream glimpse hardcodes `ShowInTaskbar = false` for the Windows WebView2
+  // window, which hides the review window from the taskbar and makes it easy to
+  // lose. Flip it so the window shows up like a normal application.
+  const patched = original.replace("ShowInTaskbar = false", "ShowInTaskbar = true");
+  if (patched === original) {
+    // Either already patched or the upstream source changed shape. If it's
+    // already patched this is a no-op; if the shape changed, the rebuild still
+    // runs and we just don't apply the taskbar tweak.
+    console.error(
+      "[diff-review] Warning: could not find 'ShowInTaskbar = false' in glimpse Program.cs to patch.",
+    );
+    return;
+  }
+  writeFileSync(programCsPath, patched, "utf8");
+}
+
 function ensureWindowsGlimpseInstalled(): string {
   const windowsInstallDir = toWindowsPath(WINDOWS_INSTALL_DIR);
   const glimpsePath = join(WINDOWS_INSTALL_DIR, "node_modules", "glimpseui", "src", "glimpse.mjs");
+  const patchedMarker = join(WINDOWS_INSTALL_DIR, ".pi-diff-review-taskbar-patched");
 
-  if (existsSync(glimpsePath)) {
+  if (existsSync(glimpsePath) && existsSync(patchedMarker)) {
     return toWindowsPath(glimpsePath);
   }
 
@@ -101,19 +132,45 @@ function ensureWindowsGlimpseInstalled(): string {
   }
 
   const npmCmd = toWindowsPath(npmPath);
-  const result = spawnSync("cmd.exe", ["/c", "cd", "/d", windowsInstallDir, "&&", npmCmd, "install", "glimpseui"], {
-    stdio: "inherit",
-    timeout: 300000,
-  });
 
-  if (result.status !== 0) {
-    throw new Error(`Failed to install glimpseui in Windows: npm install exited with ${result.status ?? "unknown"}`);
-  }
-
+  // Install glimpseui without running its postinstall build. We patch the
+  // Windows source first (to enable taskbar presence) and then build ourselves,
+  // so we only compile the native binary once.
   if (!existsSync(glimpsePath)) {
-    throw new Error("glimpseui installation completed but the expected file was not found.");
+    const installResult = spawnSync(
+      "cmd.exe",
+      ["/c", "cd", "/d", windowsInstallDir, "&&", npmCmd, "install", "glimpseui", "--ignore-scripts"],
+      { stdio: "inherit", timeout: 300000 },
+    );
+    if (installResult.status !== 0) {
+      throw new Error(
+        `Failed to install glimpseui in Windows: npm install exited with ${installResult.status ?? "unknown"}`,
+      );
+    }
+    if (!existsSync(glimpsePath)) {
+      throw new Error("glimpseui installation completed but the expected file was not found.");
+    }
   }
 
+  patchWindowsGlimpseShowInTaskbar();
+
+  // `build:windows` is a script on the glimpseui package itself, so run it from
+  // inside the installed package directory, not the install root.
+  const windowsPackageDir = toWindowsPath(
+    join(WINDOWS_INSTALL_DIR, "node_modules", "glimpseui"),
+  );
+  const buildResult = spawnSync(
+    "cmd.exe",
+    ["/c", "cd", "/d", windowsPackageDir, "&&", npmCmd, "run", "build:windows"],
+    { stdio: "inherit", timeout: 300000 },
+  );
+  if (buildResult.status !== 0) {
+    throw new Error(
+      `Failed to build patched glimpseui for Windows: build exited with ${buildResult.status ?? "unknown"}`,
+    );
+  }
+
+  writeFileSync(patchedMarker, new Date().toISOString(), "utf8");
   return toWindowsPath(glimpsePath);
 }
 
