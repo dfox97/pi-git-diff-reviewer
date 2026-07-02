@@ -116,7 +116,7 @@ function inferLanguage(path) {
 
 function scopeLabel(scope) {
   switch (scope) {
-    case "git-diff": return "Git diff";
+    case "git-diff": return reviewData.baseBranch ? `Branch diff vs ${reviewData.baseBranch}` : "Git diff";
     case "last-commit": return "Last commit";
     case "commit": return "Commit history";
     default: return "All files";
@@ -126,7 +126,9 @@ function scopeLabel(scope) {
 function scopeHint(scope) {
   switch (scope) {
     case "git-diff":
-      return "Review working tree changes against HEAD. Hover or click line numbers in the gutter to add an inline comment.";
+      return reviewData.baseBranch
+        ? `Review all branch changes against ${reviewData.baseBranch}. Hover or click line numbers in the gutter to add an inline comment.`
+        : "Review working tree changes against HEAD. Hover or click line numbers in the gutter to add an inline comment.";
     case "last-commit":
       return "Review the last commit against its parent. Hover or click line numbers in the gutter to add an inline comment.";
     case "commit":
@@ -838,7 +840,7 @@ function updateScopeButtons() {
         ? "cursor-pointer rounded-md border border-[#2ea043]/40 bg-[#238636]/15 px-2.5 py-1 text-[11px] font-medium text-[#3fb950] hover:bg-[#238636]/25"
         : "cursor-pointer rounded-md border border-review-border bg-review-panel px-2.5 py-1 text-[11px] font-medium text-review-text hover:bg-[#21262d]";
   };
-  scopeDiffButton.textContent = `Git diff${counts.diff > 0 ? ` (${counts.diff})` : ""}`;
+  scopeDiffButton.textContent = `${scopeLabel("git-diff")}${counts.diff > 0 ? ` (${counts.diff})` : ""}`;
   scopeLastCommitButton.textContent = `Last commit${counts.lastCommit > 0 ? ` (${counts.lastCommit})` : ""}`;
   scopeCommitButton.textContent = `Commits${counts.commit > 0 ? ` (${counts.commit})` : ""}`;
   scopeAllButton.textContent = `All files${counts.all > 0 ? ` (${counts.all})` : ""}`;

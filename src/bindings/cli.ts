@@ -5,16 +5,16 @@
  * an LLM. It produces a draft prompt for the human; cancel/close/empty yields
  * no prompt.
  *
- *   diff-review open [--base <branch>] [--out <path>]   (agent mode)
+ *   diff-review open [<branch>] [--base <branch>] [--out <path>]   (agent mode)
  *     Opens the review window. On submit-with-content, writes the raw markdown
  *     prompt to stdout (or `--out` <path>) and exits 0. On cancel/close/empty/
  *     error, writes nothing to stdout, logs to stderr, and exits non-zero.
  *
- *   diff-review clip [--base <branch>]                  (human mode; default)
+ *   diff-review [clip] [<branch>] [--base <branch>]     (human mode; default)
  *     Opens the review window. On submit, copies the prompt to the clipboard
  *     and prints a friendly message. Cancel/close just prints "cancelled".
  *
- * `--base` replaces the old positional branch argument.
+ * The positional branch argument is kept as a short alias for `--base`.
  */
 
 import { spawn } from "node:child_process";
@@ -133,6 +133,8 @@ function parseArgs(argv: string[]): ParsedArgs {
 			outPath = rest[++i];
 		} else if (arg.startsWith("--out=")) {
 			outPath = arg.slice("--out=".length);
+		} else if (!arg.startsWith("-") && baseBranch == null) {
+			baseBranch = arg;
 		}
 	}
 
@@ -140,14 +142,14 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function printUsage(): void {
-	console.log("Usage: diff-review <subcommand> [options]");
+	console.log("Usage: diff-review [subcommand] [base-branch] [options]");
 	console.log("");
 	console.log("Subcommands:");
 	console.log("  open   Agent mode: print the prompt to stdout (--out for a file).");
 	console.log("  clip   Human mode (default): copy the prompt to the clipboard.");
 	console.log("");
 	console.log("Options:");
-	console.log("  --base <branch>   Review against <branch> (merge-base..HEAD).");
+	console.log("  --base <branch>   Review against <branch> (same as positional base-branch).");
 	console.log("  --out <path>      (open only) write the prompt to <path> instead of stdout.");
 	console.log("  -h, --help        Show this help.");
 }

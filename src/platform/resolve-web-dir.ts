@@ -29,7 +29,7 @@ function toWindowsUncPath(posixPath: string): string {
 			"WSL_DISTRO_NAME is not set; cannot resolve a Windows-accessible path for the review window. Set WSL_DISTRO_NAME or run outside WSL.",
 		);
 	}
-	// posixPath is absolute like /home/danny/.../web/index.html
+	// posixPath is an absolute Linux path like /home/user/project/web/index.html.
 	const rest = posixPath.replace(/^\//, "").replace(/\//g, "\\");
 	return `\\\\wsl.localhost\\${distro}\\${rest}`;
 }

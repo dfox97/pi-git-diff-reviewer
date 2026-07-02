@@ -15,7 +15,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/badlogic/pi-diff-review"
+    "url": "https://github.com/dfox97/pi-git-diff-reviewer"
   },
   "license": "MIT",
   "bin": {

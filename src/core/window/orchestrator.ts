@@ -237,6 +237,12 @@ function openWindowInternal(
 				relPath: file.path,
 				line: message.line,
 			});
+			// Minimize the review window so the editor (e.g. a tmux pane) is visible.
+			// Only the WSL-patched glimpse native implements `minimize`; on other
+			// backends this is a no-op.
+			try {
+				(window as { minimize?: () => void }).minimize?.();
+			} catch {}
 		};
 
 		const prefetchNext = (

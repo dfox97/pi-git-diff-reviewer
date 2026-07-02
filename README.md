@@ -2,7 +2,34 @@
 
 Adds a `/diff-review` command to [pi](https://pi.dev) that opens a native diff review window. The original extension works on macOS, Linux, and Windows. This fork specifically handles the **WSL2 + Windows** case where the pi agent runs in WSL2 but the native window must render on the Windows desktop via WebView2.
 
-## Supported runtimes
+## Quick Start
+
+From this repo:
+
+```bash
+npm install
+npm run build
+npm link
+```
+
+Then run it inside any git repository:
+
+```bash
+diff-review              # review uncommitted changes, copy prompt to clipboard
+diff-review dev          # review this branch against dev, copy prompt to clipboard
+diff-review open --base dev   # write the prompt to stdout instead
+```
+
+If you are using pi or opencode from this repo, start the agent in the repo root and type:
+
+```text
+/diff-review
+/diff-review dev
+```
+
+On WSL2, install Windows Node.js and the .NET 8 SDK first. The first run may take 30-60s while the Windows window host is prepared.
+
+## Supported Runtimes
 
 This fork works in three ways. In all of them the composed feedback is collected from the native review window and handed back to your editor, chat box, clipboard, or stdout.
 
@@ -10,13 +37,6 @@ This fork works in three ways. In all of them the composed feedback is collected
 - **opencode** — from the repo root, run `opencode` and type `/diff-review` (or `/diff-review <base>`) in the TUI. The composed feedback is inserted into the chat box as a draft. See [opencode support](#opencode-support).
 - **Standalone CLI** — run outside any AI agent. `diff-review clip` copies the prompt to your clipboard; `diff-review open` writes it to stdout for an agent harness to ingest. See [Standalone CLI](#standalone-cli).
 - **Claude Code** — a `.claude/` plugin (slash command + `UserPromptExpansion` hook) that opens the review window and feeds the composed feedback to Claude, or blocks the turn on cancel. See [Claude Code support](#claude-code-support).
-
-```bash
-# CLI quick start (from this repo)
-npm install && npm run build && npm link
-diff-review clip              # review uncommitted changes; copy prompt to clipboard
-diff-review open --base dev   # agent mode: prompt on stdout, exit 0 only on submit-with-content
-```
 
 ## What it does
 
@@ -123,7 +143,7 @@ Uses glimpseui's native Swift/WebKit backend. No extra dependencies — just ins
 > **Important:** Do not install this alongside the original `pi-diff-review`. Both register the `/diff-review` command and will conflict.
 
 ```bash
-pi install git:https://github.com/YOUR_USERNAME/pi-diff-review-wsl
+pi install git:https://github.com/dfox97/pi-git-diff-reviewer
 # or locally:
 pi install .
 ```
@@ -149,20 +169,29 @@ Run diff-review directly from your shell, outside any AI agent.
 
 ### Subcommands
 
-- `diff-review clip [--base <branch>]` — **human mode (default).** Opens the window; on submit copies the prompt to the clipboard. Cancel/close just prints "cancelled".
-- `diff-review open [--base <branch>] [--out <path>]` — **agent mode.** Opens the window; on submit-with-content writes the raw markdown prompt to stdout (or `--out <path>`) and exits `0`. On cancel/close/empty/error writes **nothing** to stdout, logs to stderr, and exits **non-zero**. Never calls an LLM.
+- `diff-review [clip] [<branch>] [--base <branch>]` — **human mode (default).** Opens the window; on submit copies the prompt to the clipboard. Cancel/close just prints "cancelled".
+- `diff-review open [<branch>] [--base <branch>] [--out <path>]` — **agent mode.** Opens the window; on submit-with-content writes the raw markdown prompt to stdout (or `--out <path>`) and exits `0`. On cancel/close/empty/error writes **nothing** to stdout, logs to stderr, and exits **non-zero**. Never calls an LLM.
 
-`--base` replaces the old positional branch argument.
+The positional branch argument is a short alias for `--base`, so `diff-review dev` reviews the current branch against `dev` using the merge base.
 
-### Run locally / install globally
+### Install The CLI
 
 ```bash
-cd /home/danny/personal/projects/pi-diff-review-wsl
+git clone https://github.com/dfox97/pi-git-diff-reviewer.git
+cd pi-git-diff-reviewer
 npm install
 npm run build     # compile to dist/
 npm link          # makes `diff-review` available globally
+```
 
+### Run The CLI
+
+Run these from the git repository you want to review:
+
+```bash
+diff-review              # uncommitted changes; copy prompt to clipboard
 diff-review clip --base main
+diff-review dev          # same as --base dev
 diff-review open --base main --out /tmp/review.md
 ```
 
@@ -336,6 +365,10 @@ The window first shows a tiny dark placeholder while `loadFile` swaps in the rea
 ```
 
 `web` (including `web/vendor/`) is shipped in `files`; there is no `postinstall` and no runtime download.
+
+## License
+
+This project is MIT licensed. Vendored web assets keep their upstream licenses; see `web/vendor/LICENSES.md`.
 
 ## Adapted from
 

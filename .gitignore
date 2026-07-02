@@ -1,3 +1,18 @@
 node_modules/
 .pi/hf-sessions/
 dist/
+
+# Local environment and credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.asc
+*.gpg
+
+# Local package artifacts
+*.tgz

@@ -77,7 +77,7 @@ function toFileUrl(windowsPath: string): string {
 
 const WINDOWS_INSTALL_DIR = "/mnt/c/temp/pi-wsl-glimpse";
 
-function patchWindowsGlimpseShowInTaskbar(): void {
+function patchWindowsGlimpseProgramCs(): void {
   const programCsPath = join(
     WINDOWS_INSTALL_DIR,
     "node_modules",
@@ -90,27 +90,46 @@ function patchWindowsGlimpseShowInTaskbar(): void {
     throw new Error("glimpseui Program.cs not found after install.");
   }
 
-  const original = readFileSync(programCsPath, "utf8");
-  // Upstream glimpse hardcodes `ShowInTaskbar = false` for the Windows WebView2
-  // window, which hides the review window from the taskbar and makes it easy to
-  // lose. Flip it so the window shows up like a normal application.
-  const patched = original.replace("ShowInTaskbar = false", "ShowInTaskbar = true");
-  if (patched === original) {
-    // Either already patched or the upstream source changed shape. If it's
-    // already patched this is a no-op; if the shape changed, the rebuild still
-    // runs and we just don't apply the taskbar tweak.
+  let source = readFileSync(programCsPath, "utf8");
+  let changed = false;
+
+  // Patch 1: show the window in the Windows taskbar. Upstream glimpse hardcodes
+  // `ShowInTaskbar = false` for the WebView2 window, which hides it from the
+  // taskbar and makes it easy to lose. Flip it so it behaves like a normal app.
+  const withTaskbar = source.replace("ShowInTaskbar = false", "ShowInTaskbar = true");
+  if (withTaskbar !== source) {
+    source = withTaskbar;
+    changed = true;
+  } else {
+    // Already patched or upstream changed shape; non-fatal.
     console.error(
       "[diff-review] Warning: could not find 'ShowInTaskbar = false' in glimpse Program.cs to patch.",
     );
-    return;
   }
-  writeFileSync(programCsPath, patched, "utf8");
+
+  // Patch 2: add a `minimize` message handler so the review window can be
+  // minimized (e.g. when opening a file in an external editor). Upstream only
+  // knows `show`/`close`; inject a `case "minimize"` next to `case "close"`.
+  const closeCase = '            case "close":\n                CloseOnce();\n                break;\n';
+  const minimizeCase = '            case "minimize":\n                Form.WindowState = FormWindowState.Minimized;\n                break;\n';
+  if (source.includes(minimizeCase)) {
+    // already patched
+  } else if (source.includes(closeCase)) {
+    source = source.replace(closeCase, minimizeCase + closeCase);
+    changed = true;
+  } else {
+    console.error(
+      "[diff-review] Warning: could not find 'case \"close\"' in glimpse Program.cs to add minimize handler.",
+    );
+  }
+
+  if (changed) writeFileSync(programCsPath, source, "utf8");
 }
 
 function ensureWindowsGlimpseInstalled(): string {
   const windowsInstallDir = toWindowsPath(WINDOWS_INSTALL_DIR);
   const glimpsePath = join(WINDOWS_INSTALL_DIR, "node_modules", "glimpseui", "src", "glimpse.mjs");
-  const patchedMarker = join(WINDOWS_INSTALL_DIR, ".pi-diff-review-taskbar-patched");
+  const patchedMarker = join(WINDOWS_INSTALL_DIR, ".pi-diff-review-patched-v2");
 
   if (existsSync(glimpsePath) && existsSync(patchedMarker)) {
     return toWindowsPath(glimpsePath);
@@ -152,7 +171,7 @@ function ensureWindowsGlimpseInstalled(): string {
     }
   }
 
-  patchWindowsGlimpseShowInTaskbar();
+  patchWindowsGlimpseProgramCs();
 
   // `build:windows` is a script on the glimpseui package itself, so run it from
   // inside the installed package directory, not the install root.
@@ -241,6 +260,7 @@ rl.on('line', (line) => {
       case 'setHTML': win.setHTML(msg.html); break;
       case 'show': win.show(msg.title != null ? { title: msg.title } : {}); break;
       case 'close': win.close(); break;
+      case 'minimize': win._write({ type: 'minimize' }); break;
       case 'getInfo': win.getInfo(); break;
       case 'loadFile': win.loadFile(msg.path); break;
       case 'followCursor': win.followCursor(msg.enabled, msg.anchor, msg.mode); break;
@@ -343,6 +363,11 @@ class WSLGlimpseWindow extends EventEmitter {
   close(): void {
     if (this.#closed) return;
     this.#proc.stdin.write(JSON.stringify({ type: "close" }) + "\n");
+  }
+
+  minimize(): void {
+    if (this.#closed) return;
+    this.#proc.stdin.write(JSON.stringify({ type: "minimize" }) + "\n");
   }
 
   loadFile(path: string): void {

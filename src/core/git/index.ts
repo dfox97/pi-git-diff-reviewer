@@ -92,7 +92,7 @@ export async function getReviewWindowData(
 		if (resolved == null) {
 			throw new Error(`Base branch "${baseBranch}" not found.`);
 		}
-		const base = await getMergeBase(exec, repoRoot, baseBranch);
+		const base = await getMergeBase(exec, repoRoot, resolved);
 		if (base == null) {
 			throw new Error(`Could not find merge base between "${baseBranch}" and HEAD.`);
 		}

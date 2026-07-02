@@ -36,10 +36,14 @@ export async function hasHead(exec: ExecType, repoRoot: string): Promise<boolean
 }
 
 export async function resolveBranch(exec: ExecType, repoRoot: string, branch: string): Promise<string | null> {
-	const result = await exec("git", ["rev-parse", "--verify", branch], { cwd: repoRoot });
-	if (result.code !== 0) return null;
-	const sha = result.stdout.trim();
-	return sha.length > 0 ? sha : null;
+	const candidates = branch.includes("/") ? [branch] : [branch, `origin/${branch}`];
+	for (const candidate of candidates) {
+		const result = await exec("git", ["rev-parse", "--verify", candidate], { cwd: repoRoot });
+		if (result.code !== 0) continue;
+		const sha = result.stdout.trim();
+		if (sha.length > 0) return sha;
+	}
+	return null;
 }
 
 export async function getMergeBase(exec: ExecType, repoRoot: string, baseBranch: string): Promise<string | null> {
